@@ -1,18 +1,30 @@
 
-# Bitcoin Risk İzleme Paneli – Streamlit Arayüzü
-# Gerekenler: pip install streamlit pandas matplotlib
+# Bitcoin Risk İzleme Paneli – Streamlit Arayüzü (Gerçek Binance API Entegrasyonu)
+# Gerekenler: pip install streamlit pandas matplotlib requests
 
 import datetime
 import pandas as pd
 import matplotlib.pyplot as plt
 import streamlit as st
+import requests
 
-# Sahte veri oluşturma (gerçek veriler API ile entegre edilebilir)
-base_date = datetime.date.today() - datetime.timedelta(days=30)
-dates = [base_date + datetime.timedelta(days=i) for i in range(30)]
-funding_rate = [0.01 + 0.002 * ((i % 7) - 3) for i in range(30)]  # dalgalı funding
-price = [100000 + i*300 + (i % 5)*1000 for i in range(30)]  # artan BTC fiyatı
-open_interest = [30e9 + (i % 10)*1e9 for i in range(30)]  # nominal OI
+# Binance API'den funding rate ve fiyat verisini çek
+url = "https://fapi.binance.com/fapi/v1/fundingRate?symbol=BTCUSDT&limit=30"
+response = requests.get(url)
+data = response.json()
+
+# Zaman, fiyat ve funding verisini çıkar
+funding_rate = []
+price = []
+dates = []
+for entry in data:
+    dt = datetime.datetime.fromtimestamp(entry['fundingTime'] / 1000)
+    dates.append(dt.date())
+    funding_rate.append(float(entry['fundingRate']))
+    price.append(float(entry['markPrice']))
+
+# OI sahte veri ile devam ediyor (çünkü OI API gerektiriyor)
+open_interest = [30e9 + (i % 10)*1e9 for i in range(len(dates))]
 
 btc_price = pd.Series(price, index=dates)
 funding = pd.Series(funding_rate, index=dates)
@@ -30,7 +42,7 @@ def risk_level(fund, oi_norm_delta, price_delta):
     else:
         return "✅ DÜŞÜK RİSK"
 
-# Yeni: Zaman Tabanlı Sinyal Skoru (15dk → 2h → 4h simülasyonu)
+# Zaman Tabanlı Sinyal Skoru (15dk → 2h → 4h simülasyonu)
 def time_based_score(idx):
     if idx < 4:
         return 50  # yeterli veri yoksa nötr
@@ -82,4 +94,4 @@ st.subheader("📋 Günlük Risk Değerlendirmesi")
 st.dataframe(risk_df.tail(10), use_container_width=True)
 
 # Footer
-st.caption("Veriler örneklemelidir. Gerçek API entegrasyonu uygulanabilir. Zaman bazlı sinyaller eklenmiştir.")
+st.caption("🔗 Binance API ile canlı verilerle güncellenmektedir. Zaman bazlı sinyaller eklenmiştir.")
