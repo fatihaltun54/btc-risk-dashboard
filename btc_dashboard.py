@@ -1,5 +1,5 @@
 
-# Bitcoin Risk İzleme Paneli – DEBUG MOD
+# Bitcoin Risk İzleme Paneli – Streamlit Arayüzü (Gerçek Binance API Entegrasyonu)
 # Gerekenler: pip install streamlit pandas matplotlib requests
 
 import datetime
@@ -9,38 +9,37 @@ import streamlit as st
 import requests
 
 # Binance API'den funding rate ve fiyat verisini çek
-url = "https://fapi.binance.com/fapi/v1/fundingRate?symbol=BTCUSDT&limit=30"
+url = "https://fapi.binance.com/fapi/v1/fundingRate?symbol=BTCUSDT&limit=5"
 response = requests.get(url)
 data = response.json()
 
-# DEBUG: Gelen veri bilgisi
-st.write("Gelen veri sayısı:", len(data))
-st.write("Örnek veri:", data[0] if data else "Veri yok")
+st.title("📈 Bitcoin Risk İzleme Paneli (DEBUG MODU)")
+st.write(f"Gelen veri sayısı: {len(data)}")
+st.write("Örnek veri:", data[0] if len(data) > 0 else "Veri yok")
 
-# Zaman, fiyat ve funding verisini çıkar
-funding_rate = []
-price = []
-dates = []
+if len(data) < 2:
+    st.warning("Grafik ve analiz için yeterli veri bulunamadı.")
+else:
+    # Zaman, fiyat ve funding verisini çıkar
+    funding_rate = []
+    price = []
+    dates = []
+    for entry in data:
+        try:
+            dt = datetime.datetime.fromtimestamp(entry['fundingTime'] / 1000)
+            dates.append(dt.date())
+            funding_rate.append(float(entry['fundingRate']))
+            price.append(float(entry['markPrice']))
+        except KeyError as e:
+            st.error(f"Veri hatası: {e}")
+            continue
 
-for entry in data:
-    try:
-        dt = datetime.datetime.fromtimestamp(entry['fundingTime'] / 1000)
-        dates.append(dt.date())
-        funding_rate.append(float(entry['fundingRate']))
-        price.append(float(entry['markPrice']))
-    except Exception as e:
-        st.write("Veri işleme hatası:", e)
-
-# OI sahte veri ile devam ediyor (çünkü OI API gerektiriyor)
-open_interest = [30e9 + (i % 10)*1e9 for i in range(len(dates))]
-
-if dates and price and funding_rate:
+    open_interest = [30e9 + (i % 10)*1e9 for i in range(len(dates))]
     btc_price = pd.Series(price, index=dates)
     funding = pd.Series(funding_rate, index=dates)
     oi_nominal = pd.Series(open_interest, index=dates)
     oi_normalized = oi_nominal / btc_price
 
-    # Risk analizi fonksiyonu
     def risk_level(fund, oi_norm_delta, price_delta):
         if fund > 0.2 and oi_norm_delta < -0.01 and price_delta > 0:
             return "🔴 YÜKSEK RİSK (Long squeeze olasılığı)"
@@ -57,7 +56,6 @@ if dates and price and funding_rate:
         short_term = price[idx] - price[idx - 1]
         mid_term = price[idx] - price[idx - 2]
         long_term = price[idx] - price[idx - 4]
-
         score = 50
         if short_term > 0: score += 5
         if mid_term > 0: score += 10
@@ -67,7 +65,6 @@ if dates and price and funding_rate:
         if long_term < 0: score -= 15
         return max(0, min(100, score))
 
-    # Risk seviyesi hesaplama
     risk_signals = []
     for i in range(1, len(dates)):
         fr = funding[dates[i]]
@@ -81,14 +78,8 @@ if dates and price and funding_rate:
     risk_df = pd.DataFrame(risk_signals, columns=[
         "Tarih", "Funding", "OI Değişim", "Fiyat Değişimi", "Risk Seviyesi", "Zaman Skoru", "Toplam Sinyal Skoru"])
 
-    # Streamlit arayüzü
-    st.set_page_config(page_title="Bitcoin Risk Paneli (Debug)", layout="wide")
-    st.title("📈 Bitcoin Risk İzleme Paneli (Debug)")
-    st.write("Funding Rate, Open Interest, Fiyat ve Zaman bazlı sinyal modellemesi")
-
-    # Grafikler
     st.subheader("📊 Grafiksel Görünümler")
-    fig, ax = plt.subplots(figsize=(12, 6))
+    fig, ax = plt.subplots(figsize=(10, 5))
     ax.plot(dates, btc_price, label="BTC Fiyatı ($)")
     ax.plot(dates, oi_normalized * 1000, label="Normalize OI (x1000 BTC)")
     ax.plot(dates, [f * 10000 for f in funding], label="Funding Rate (x10000)")
@@ -97,11 +88,6 @@ if dates and price and funding_rate:
     plt.xticks(rotation=45)
     st.pyplot(fig)
 
-    # Tablo
     st.subheader("📋 Günlük Risk Değerlendirmesi")
     st.dataframe(risk_df.tail(10), use_container_width=True)
-else:
-    st.warning("Grafik oluşturmak için yeterli veri alınamadı.")
-
-# Footer
-st.caption("🔗 Binance API ile canlı verilerle güncellenmektedir. Zaman bazlı sinyaller eklenmiştir.")
+    st.caption("🔗 Binance API ile canlı verilerle güncellenmektedir.")
