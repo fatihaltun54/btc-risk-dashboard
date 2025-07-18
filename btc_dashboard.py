@@ -83,13 +83,14 @@ st.write("Funding Rate, Open Interest, Fiyat ve Zaman bazlı sinyal modellemesi"
 # Grafikler
 st.subheader("📊 Grafiksel Görünümler")
 fig, ax = plt.subplots(figsize=(12, 6))
-ax.plot(dates, btc_price, label="BTC Fiyatı ($)")
-ax.plot(dates, oi_normalized * 1000, label="Normalize OI (x1000 BTC)")
-ax.plot(dates, [f * 10000 for f in funding], label="Funding Rate (x10000)")
-ax.legend()
-ax.grid(True)
-plt.xticks(rotation=45)
-st.pyplot(fig)
+if not btc_price.empty and not oi_normalized.empty and not funding.empty:
+    ax.plot(dates, btc_price, label="BTC Fiyatı ($)")
+    ax.plot(dates, oi_normalized * 1000, label="Normalize OI (x1000 BTC)")
+    ax.plot(dates, [f * 10000 for f in funding], label="Funding Rate (x10000)")
+    ax.legend()
+    ax.grid(True)
+    plt.xticks(rotation=45)
+    st.pyplot(fig)
 
 # Tablo
 st.subheader("📋 Günlük Risk Değerlendirmesi")
