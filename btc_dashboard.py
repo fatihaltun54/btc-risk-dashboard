@@ -1,7 +1,5 @@
 
 # Bitcoin Risk İzleme Paneli – Streamlit Arayüzü (Gerçek Binance API Entegrasyonu)
-# Gerekenler: pip install streamlit pandas matplotlib requests
-
 import datetime
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -13,18 +11,21 @@ url = "https://fapi.binance.com/fapi/v1/fundingRate?symbol=BTCUSDT&limit=30"
 response = requests.get(url)
 data = response.json()
 
-# Gelen veri örneği kontrolü
-if len(data) > 0 and 'fundingTime' in data[0] and 'fundingRate' in data[0] and 'markPrice' in data[0]:
-    st.write("Örnek veri:", data[0])
-else:
-    st.warning("Uygun formatta veri alınamadı veya eksik veri.")
-    data = []  # İşlem yapılmaması için veriyi sıfırla
+# Hatalı girdileri filtrele
+valid_data = []
+for entry in data:
+    if all(key in entry for key in ['fundingTime', 'fundingRate', 'markPrice']):
+        valid_data.append(entry)
+
+if not valid_data:
+    st.error("Uygun veri alınamadı. Lütfen daha sonra tekrar deneyin.")
+    st.stop()
 
 # Zaman, fiyat ve funding verisini çıkar
 funding_rate = []
 price = []
 dates = []
-for entry in data:
+for entry in valid_data:
     dt = datetime.datetime.fromtimestamp(entry['fundingTime'] / 1000)
     dates.append(dt.date())
     funding_rate.append(float(entry['fundingRate']))
@@ -49,10 +50,10 @@ def risk_level(fund, oi_norm_delta, price_delta):
     else:
         return "✅ DÜŞÜK RİSK"
 
-# Zaman Tabanlı Sinyal Skoru (15dk → 2h → 4h simülasyonu)
+# Zaman Tabanlı Sinyal Skoru
 def time_based_score(idx):
     if idx < 4:
-        return 50  # yeterli veri yoksa nötr
+        return 50
     short_term = price[idx] - price[idx - 1]
     mid_term = price[idx] - price[idx - 2]
     long_term = price[idx] - price[idx - 4]
