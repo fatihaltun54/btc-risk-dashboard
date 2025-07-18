@@ -18,6 +18,8 @@ funding_rate = []
 price = []
 dates = []
 for entry in data:
+    if 'fundingTime' not in entry or 'markPrice' not in entry or 'fundingRate' not in entry:
+        continue  # eksik veri varsa atla
     dt = datetime.datetime.fromtimestamp(entry['fundingTime'] / 1000)
     dates.append(dt.date())
     funding_rate.append(float(entry['fundingRate']))
